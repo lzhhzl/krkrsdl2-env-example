@@ -1,544 +1,410 @@
-{
-  "name" : "Continuous Integration",
-  "on" : {
-    "push" : {
-      "paths" : [
-        "**.c",
-        "**.h",
-        "**.cpp",
-        "**.hpp",
-        "**.build",
-        "**.in",
-        "**.py",
-        "**.yml",
-        "**.gradle",
-        "**.cmake",
-        "CMakeLists.txt"
-      ]
-    },
-    "pull_request" : {
-      "paths" : [
-        "**.c",
-        "**.h",
-        "**.cpp",
-        "**.hpp",
-        "**.build",
-        "**.in",
-        "**.py",
-        "**.yml",
-        "**.gradle",
-        "**.cmake",
-        "CMakeLists.txt"
-      ]
-    }
-  },
-  "env" : {
-    "CMAKE_GENERATOR" : "Ninja",
-    "HOMEBREW_NO_ANALYTICS" : "1",
-    "HOMEBREW_NO_AUTO_UPDATE" : "1",
-    "HOMEBREW_NO_INSTALL_UPGRADE" : "1",
-    "HOMEBREW_NO_INSTALL_CLEANUP" : "1",
-    "EXAMPLE_PROJECT_URL" : "https://github.com/krkrsdl2/krkrsdl2-kag3-demo/releases/download/latest/data.xp3"
-  },
-  "jobs" : {
-    "build-web" : {
-      "runs-on" : "ubuntu-20.04",
-      "timeout-minutes" : 20,
-      "container" : {
-        "image" : "emscripten/emsdk:3.1.24"
-      },
-      "steps" : [
-        {
-          "name" : "Checkout repository",
-          "uses" : "actions/checkout@v4",
-          "with" : {
-            "submodules" : "recursive"
-          }
-        },
-        {
-          "name" : "Install additional dependencies",
-          "run" : "apt-get -y update && apt-get -y install p7zip-full cmake make ninja-build git curl"
-        },
-        {
-          "name" : "Configure project",
-          "run" : "emcmake cmake -S . -B build"
-        },
-        {
-          "name" : "Build project",
-          "run" : "cmake --build build"
-        },
-        {
-          "name" : "Archive artifact",
-          "run" : "cd build && 7z a -tzip ${{ github.event.repository.name }}-web.zip krkrsdl2.wasm krkrsdl2.js index.html"
-        },
-        {
-          "name" : "Upload artifact",
-          "uses" : "actions/upload-artifact@v4",
-          "with" : {
-            "name" : "${{ github.event.repository.name }}-web",
-            "path" : "build/*.zip"
-          }
-        }
-      ]
-    },
-    "build-ubuntu" : {
-      "runs-on" : "ubuntu-20.04",
-      "timeout-minutes" : 20,
-      "steps" : [
-        {
-          "name" : "Checkout repository",
-          "uses" : "actions/checkout@v4",
-          "with" : {
-            "submodules" : "recursive"
-          }
-        },
-        {
-          "name" : "Install dependencies",
-          "run" : "sudo apt-get update && sudo apt-get install build-essential libsdl2-dev"
-        },
-        {
-          "name" : "Set up Homebrew environment for Github Actions",
-          "run" : "echo \"/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin\" >> $GITHUB_PATH"
-        },
-        {
-          "name" : "Set up default build tools",
-          "run" : "brew install make nasm ninja cmake"
-        },
-        {
-          "name" : "Configure project",
-          "run" : "cmake -S . -B build"
-        },
-        {
-          "name" : "Build project",
-          "run" : "cmake --build build"
-        },
-        {
-          "name" : "Archive artifact",
-          "run" : "cd build && 7z a -tzip ${{ github.event.repository.name }}-ubuntu.zip krkrsdl2"
-        },
-        {
-          "name" : "Upload artifact",
-          "uses" : "actions/upload-artifact@v4",
-          "with" : {
-            "name" : "${{ github.event.repository.name }}-ubuntu",
-            "path" : "build/*.zip"
-          }
-        }
-      ]
-    },
-    "build-win32" : {
-      "runs-on" : "ubuntu-latest",
-      "container" : {
-        "image" : "ghcr.io/uyjulian/tvp_win32_build_container:latest",
-        "options" : "--user 1001:123"
-      },
-      "defaults" : {
-        "run" : {
-          "shell" : "bash"
-        }
-      },
-      "timeout-minutes" : 20,
-      "strategy" : {
-        "fail-fast" : false,
-        "matrix" : {
-          "platform" : [
-            {
-              "triplet" : "i686-w64-mingw32",
-              "cmake-system-compiler" : "i686",
-              "compiler" : "gcc"
-            },
-            {
-              "triplet" : "x86_64-w64-mingw32",
-              "cmake-system-compiler" : "amd64",
-              "compiler" : "gcc"
-            },
-            {
-              "triplet" : "i686-w64-mingw32",
-              "cmake-system-compiler" : "i686",
-              "compiler" : "clang"
-            },
-            {
-              "triplet" : "x86_64-w64-mingw32",
-              "cmake-system-compiler" : "amd64",
-              "compiler" : "clang"
-            },
-            {
-              "triplet" : "armv7-w64-mingw32",
-              "cmake-system-compiler" : "arm",
-              "compiler" : "clang"
-            },
-            {
-              "triplet" : "aarch64-w64-mingw32",
-              "cmake-system-compiler" : "arm64",
-              "compiler" : "clang"
-            }
-          ]
-        }
-      },
-      "steps" : [
-        {
-          "name" : "Checkout repository",
-          "uses" : "actions/checkout@v4",
-          "with" : {
-            "submodules" : "recursive"
-          }
-        },
-        {
-          "name" : "Set up mingw-w64 for Clang",
-          "if" : "matrix.platform.compiler == 'clang'",
-          "run" : "echo \"/opt/llvm-mingw/bin\" >> $GITHUB_PATH"
-        },
-        {
-          "name" : "Configure project",
-          "run" : "cmake -S . -B build -GNinja -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.platform.cmake-system-compiler }} -DCMAKE_FIND_ROOT_PATH=/dev/null -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY -DCMAKE_C_COMPILER=${{ matrix.platform.triplet }}-gcc -DCMAKE_CXX_COMPILER=${{ matrix.platform.triplet }}-g++ -DCMAKE_RC_COMPILER=${{ matrix.platform.triplet }}-windres -DCMAKE_BUILD_TYPE=Release"
-        },
-        {
-          "name" : "Build project",
-          "run" : "cmake --build build"
-        },
-        {
-          "name" : "Archive artifact",
-          "run" : "cd build && 7z a -tzip ${{ github.event.repository.name }}-win32-${{ matrix.platform.cmake-system-compiler }}-${{ matrix.platform.compiler }}.zip *.exe"
-        },
-        {
-          "name" : "Upload artifact",
-          "uses" : "actions/upload-artifact@v4",
-          "with" : {
-            "name" : "${{ github.event.repository.name }}-win32-${{ matrix.platform.cmake-system-compiler }}-${{ matrix.platform.compiler }}",
-            "path" : "build/*.zip"
-          }
-        }
-      ]
-    },
-    "build-android" : {
-      "runs-on" : "ubuntu-20.04",
-      "timeout-minutes" : 20,
-      "steps" : [
-        {
-          "name" : "Checkout repository",
-          "uses" : "actions/checkout@v4",
-          "with" : {
-            "submodules" : "recursive"
-          }
-        },
-        {
-          "name" : "Clean current assets folder",
-          "run" : "rm -rf android-project/app/src/main/assets && mkdir -p android-project/app/src/main/assets"
-        },
-        {
-          "name" : "Download example project",
-          "run" : "cd android-project/app/src/main/assets && curl -LOC - $EXAMPLE_PROJECT_URL"
-        },
-        {
-          "name" : "Set up base environment",
-          "run" : "sudo apt-get install build-essential"
-        },
-        {
-          "name" : "Set up Homebrew environment for Github Actions",
-          "run" : "echo \"/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin\" >> $GITHUB_PATH"
-        },
-        {
-          "name" : "Set up default build tools",
-          "run" : "brew install make nasm ninja cmake"
-        },
-        {
-          "name" : "set up JDK 17",
-          "uses" : "actions/setup-java@v4",
-          "with" : {
-            "distribution" : "temurin",
-            "java-version" : "17"
-          }
-        },
-        {
-          "name" : "Build project",
-          "run" : "cd android-project\n./gradlew assembleRelease -Dcmake.dir=$(dirname $(dirname $(which cmake)))\n"
-        },
-        {
-          "name" : "Rename artifact",
-          "run" : "cp android-project/app/build/outputs/apk/release/krkrsdl2_*.apk ./krkrsdl2.apk"
-        },
-        {
-          "name" : "Upload artifact",
-          "uses" : "actions/upload-artifact@v4",
-          "with" : {
-            "name" : "${{ github.event.repository.name }}-android",
-            "path" : "./krkrsdl2.apk"
-          }
-        }
-      ]
-    },
-    "build-vita" : {
-      "runs-on" : "ubuntu-20.04",
-      "timeout-minutes" : 20,
-      "container" : {
-        "image" : "vitasdk/vitasdk:latest"
-      },
-      "steps" : [
-        {
-          "name" : "Install dependencies",
-          "run" : "apk update\napk add cmake make ninja git curl\n"
-        },
-        {
-          "name" : "Checkout repository",
-          "uses" : "actions/checkout@v4",
-          "with" : {
-            "submodules" : "recursive"
-          }
-        },
-        {
-          "name" : "Download example project",
-          "run" : "curl -LOC - $EXAMPLE_PROJECT_URL"
-        },
-        {
-          "name" : "Configure project",
-          "run" : "cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=${VITASDK}/share/vita.toolchain.cmake -DEMBED_DATA_PATH=data.xp3"
-        },
-        {
-          "name" : "Build project",
-          "run" : "cmake --build build"
-        },
-        {
-          "name" : "Upload artifact",
-          "uses" : "actions/upload-artifact@v4",
-          "with" : {
-            "name" : "${{ github.event.repository.name }}-vita",
-            "path" : "build/*.vpk"
-          }
-        }
-      ]
-    },
-    # "build-switch" : {
-    #   "runs-on" : "ubuntu-20.04",
-    #   "timeout-minutes" : 20,
-    #   "container" : {
-    #     "image" : "devkitpro/devkita64:20210726"
-    #   },
-    #   "steps" : [
-    #     {
-    #       "name" : "Apply apt repository archive",
-    #       "run" : "sed -i -e 's,# deb http://snapshot,deb http://snapshot,g;s,deb http://deb,# deb http://deb,g;s,deb http://security,# deb http://security,g' /etc/apt/sources.list && mv /etc/apt/sources.list.d/buster-backports.list /etc/apt/sources.list.d/buster-backports.list.disabled && printf '%s\\n' 'Acquire::Check-Valid-Until \"0\";' | tee -a /etc/apt/apt.conf.d/10no--check-valid-until"
-    #     },
-    #     {
-    #       "name" : "Install dependencies",
-    #       "run" : "apt-get -y update\napt-get -y install cmake make ninja-build git curl\n"
-    #     },
-    #     {
-    #       "name" : "Checkout repository",
-    #       "uses" : "actions/checkout@v4",
-    #       "with" : {
-    #         "submodules" : "recursive"
-    #       }
-    #     },
-    #     {
-    #       "name" : "Download example project",
-    #       "run" : "curl -LOC - $EXAMPLE_PROJECT_URL"
-    #     },
-    #     {
-    #       "name" : "Configure project",
-    #       "run" : "cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=${DEVKITPRO}/cmake/Switch.cmake -DEMBED_DATA_PATH=data.xp3"
-    #     },
-    #     {
-    #       "name" : "Build project",
-    #       "run" : "cmake --build build"
-    #     },
-    #     {
-    #       "name" : "Upload artifact",
-    #       "uses" : "actions/upload-artifact@v4",
-    #       "with" : {
-    #         "name" : "${{ github.event.repository.name }}-switch",
-    #         "path" : "build/*.nro"
-    #       }
-    #     }
-    #   ]
-    # },
-    # "build-macos-cmake" : {
-    #   "runs-on" : "macos-14",
-    #   "timeout-minutes" : 20,
-    #   "strategy" : {
-    #     "fail-fast" : false,
-    #     "matrix" : {
-    #       "appbundle" : [
-    #         {
-    #           "enabled" : "false",
-    #           "cmakeflags" : "-DOPTION_BUILD_MACOS_BUNDLE=OFF",
-    #           "artifactnameappendix" : ""
-    #         },
-    #         {
-    #           "enabled" : "true",
-    #           "cmakeflags" : "-DOPTION_BUILD_MACOS_BUNDLE=ON -DEMBED_DATA_PATH=data.xp3",
-    #           "artifactnameappendix" : "-appbundle"
-    #         }
-    #       ]
-    #     }
-    #   },
-    #   "steps" : [
-    #     {
-    #       "name" : "Checkout repository",
-    #       "uses" : "actions/checkout@v4",
-    #       "with" : {
-    #         "submodules" : "recursive"
-    #       }
-    #     },
-    #     {
-    #       "name" : "Download example project",
-    #       "if" : "matrix.appbundle.enabled == 'true'",
-    #       "run" : "curl -LOC - $EXAMPLE_PROJECT_URL"
-    #     },
-    #     {
-    #       "name" : "Set up default build tools",
-    #       "run" : "brew install make nasm ninja cmake"
-    #     },
-    #     {
-    #       "name" : "Configure project",
-    #       "run" : "cmake -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64' -S . -B build ${{ matrix.appbundle.cmakeflags }}"
-    #     },
-    #     {
-    #       "name" : "Build project",
-    #       "run" : "cmake --build build"
-    #     },
-    #     {
-    #       "name" : "Archive artifact (command line)",
-    #       "run" : "ditto -ck --rsrc --sequesterRsrc build/krkrsdl2 build/${{ github.event.repository.name }}-macos.zip",
-    #       "if" : "matrix.appbundle.enabled == 'false'"
-    #     },
-    #     {
-    #       "name" : "Archive artifact (app bundle)",
-    #       "run" : "ditto -ck --rsrc --sequesterRsrc --keepParent build/krkrsdl2.app build/${{ github.event.repository.name }}-macos-appbundle.zip",
-    #       "if" : "matrix.appbundle.enabled == 'true'"
-    #     },
-    #     {
-    #       "name" : "Upload artifact",
-    #       "uses" : "actions/upload-artifact@v4",
-    #       "with" : {
-    #         "name" : "${{ github.event.repository.name }}-macos${{ matrix.appbundle.artifactnameappendix }}",
-    #         "path" : "build/*.zip"
-    #       }
-    #     }
-    #   ]
-    # },
-    # "build-ios-cmake" : {
-    #   "runs-on" : "macos-14",
-    #   "timeout-minutes" : 20,
-    #   "steps" : [
-    #     {
-    #       "name" : "Checkout repository",
-    #       "uses" : "actions/checkout@v4",
-    #       "with" : {
-    #         "submodules" : "recursive"
-    #       }
-    #     },
-    #     {
-    #       "name" : "Download example project",
-    #       "run" : "curl -LOC - $EXAMPLE_PROJECT_URL"
-    #     },
-    #     {
-    #       "name" : "Set up default build tools",
-    #       "run" : "brew install make nasm ninja cmake"
-    #     },
-    #     {
-    #       "name" : "Configure project",
-    #       "run" : "cmake -S . -B build -GXcode -DCMAKE_SYSTEM_NAME=iOS -DEMBED_DATA_PATH=data.xp3"
-    #     },
-    #     {
-    #       "name" : "Build project",
-    #       "run" : "cmake --build build"
-    #     },
-    #     {
-    #       "name" : "Archive artifact",
-    #       "run" : "ditto -ck --rsrc --sequesterRsrc --keepParent build/Debug-iphoneos/krkrsdl2.app build/${{ github.event.repository.name }}-ios-appbundle.zip"
-    #     },
-    #     {
-    #       "name" : "Upload artifact",
-    #       "uses" : "actions/upload-artifact@v4",
-    #       "with" : {
-    #         "name" : "${{ github.event.repository.name }}-ios-appbundle",
-    #         "path" : "build/*.zip"
-    #       }
-    #     }
-    #   ]
-    # },
-    "generate-tp-stub-ubuntu" : {
-      "runs-on" : "ubuntu-20.04",
-      "timeout-minutes" : 20,
-      "steps" : [
-        {
-          "name" : "Checkout repository",
-          "uses" : "actions/checkout@v4",
-          "with" : {
-            "submodules" : "recursive"
-          }
-        },
-        {
-          "name" : "Set up Homebrew environment for Github Actions",
-          "run" : "echo \"/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin\" >> $GITHUB_PATH"
-        },
-        {
-          "name" : "Set up python",
-          "run" : "brew install python"
-        },
-        {
-          "name" : "Create artifact directory",
-          "run" : "mkdir -p build/${{ github.event.repository.name }}-tp_stub"
-        },
-        {
-          "name" : "Generate tp_stub",
-          "run" : "python3 ./src/core/base/sdl2/makestub.py build/${{ github.event.repository.name }}-tp_stub"
-        },
-        {
-          "name" : "Copy CMake build files",
-          "run" : "cp src/config/tp_stub_template.cmake build/${{ github.event.repository.name }}-tp_stub/CMakeLists.txt"
-        },
-        {
-          "name" : "Archive artifact",
-          "run" : "cd build && tar -czf ${{ github.event.repository.name }}-tp_stub.tar.gz ${{ github.event.repository.name }}-tp_stub"
-        },
-        {
-          "name" : "Upload artifact",
-          "uses" : "actions/upload-artifact@v4",
-          "with" : {
-            "name" : "${{ github.event.repository.name }}-tp_stub",
-            "path" : "build/*.tar.gz"
-          }
-        }
-      ]
-    },
-    "create-release" : {
-      "needs" : [
-        "build-android",
-        # "build-ios-cmake",
-        # "build-macos-cmake",
-        # "build-switch",
-        "build-ubuntu",
-        "build-vita",
-        "build-web",
-        "build-win32",
-        "generate-tp-stub-ubuntu"
-      ],
-      "runs-on" : "ubuntu-20.04",
-      "timeout-minutes" : 20,
-      "if" : "github.ref == 'refs/heads/main'",
-      "steps" : [
-        {
-          "name" : "Download all artifacts",
-          "uses" : "actions/download-artifact@v4"
-        },
-        {
-          "name" : "Prepare artifacts for release",
-          "run" : "cp -t . ${{ github.event.repository.name }}-*/*.zip\ncp -t . ${{ github.event.repository.name }}-*/*.tar.gz\ncp -t . ${{ github.event.repository.name }}-android/krkrsdl2.apk\ncp -t . ${{ github.event.repository.name }}-vita/krkrsdl2.vpk\n" #cp -t . ${{ github.event.repository.name }}-switch/krkrsdl2.nro\n
-        },
-        {
-          "name" : "Create prerelease",
-          "if" : "github.ref == 'refs/heads/main'",
-          "uses" : "marvinpinto/action-automatic-releases@latest",
-          "with" : {
-            "repo_token" : "${{ secrets.GITHUB_TOKEN }}",
-            "prerelease" : "true",
-            "automatic_release_tag" : "latest",
-            "title" : "Latest development builds",
-            "files" : "*.zip\n*.tar.gz\n*.apk\n*.vpk\n" #*.nro\n
-          }
-        }
-      ]
-    }
-  }
-}
+name: Continuous Integration
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '**.c'
+      - '**.h'
+      - '**.cpp'
+      - '**.hpp'
+      - '**.build'
+      - '**.in'
+      - '**.yml'
+      - '**.gradle'
+      - CMakeLists.txt
+  pull_request:
+    paths:
+      - '**.c'
+      - '**.h'
+      - '**.cpp'
+      - '**.hpp'
+      - '**.build'
+      - '**.in'
+      - '**.yml'
+      - '**.gradle'
+      - CMakeLists.txt
+
+env:
+  CMAKE_GENERATOR: Ninja
+  HOMEBREW_NO_ANALYTICS: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
+  HOMEBREW_NO_INSTALL_UPGRADE: 1
+  HOMEBREW_NO_INSTALL_CLEANUP: 1
+  EXAMPLE_PROJECT_URL: https://github.com/krkrsdl2/krkrsdl2-kag3-demo/releases/download/latest/data.xp3
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EM_VERSION: 3.1.24
+      EM_CACHE_FOLDER: emsdk-cache
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential libsdl2-dev
+
+      - name: Setup cache
+        id: cache-system-libraries
+        uses: actions/cache@v2
+        with:
+          path: ${{ env.EM_CACHE_FOLDER }}
+          key: ${{ env.EM_VERSION }}-${{ runner.os }}
+
+      - name: Setup Emscripten SDK
+        uses: mymindstorm/setup-emsdk@v11
+        with:
+          version: ${{ env.EM_VERSION }}
+          actions-cache-folder: ${{ env.EM_CACHE_FOLDER }}
+
+      - name: Set up base environment
+        run: |
+          sudo apt-get install build-essential
+          echo "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin" >> $GITHUB_PATH
+
+      - name: Set up default build tools
+        run: brew install make nasm ninja cmake
+
+      - name: Configure project
+        run: emcmake cmake -S . -B build
+
+      - name: Build project
+        run: cmake --build build
+
+      - name: Archive artifact
+        run: |
+          cd build/krkrsdl2_repo
+          7z a -tzip krkrsdl2-web.zip krkrsdl2.wasm krkrsdl2.js index.html
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: krkrsdl2-web
+          path: build/krkrsdl2_repo/*.zip
+
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential libsdl2-dev
+
+      - name: Set up Homebrew environment
+        run: echo "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin" >> $GITHUB_PATH
+
+      - name: Set up default build tools
+        run: brew install make nasm ninja cmake
+
+      - name: Configure project
+        run: cmake -S . -B build
+
+      - name: Build project
+        run: cmake --build build
+
+      - name: Archive artifact
+        run: |
+          cd build/krkrsdl2_repo
+          7z a -tzip krkrsdl2-ubuntu.zip krkrsdl2
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: krkrsdl2-ubuntu
+          path: build/krkrsdl2_repo/*.zip
+
+  build-win32:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: ghcr.io/uyjulian/tvp_win32_build_container:latest
+      options: --user 1001:123
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - triplet: i686-w64-mingw32
+            cmake-system-compiler: i686
+
+          - triplet: x86_64-w64-mingw32
+            cmake-system-compiler: amd64
+        compiler: [gcc, clang]
+
+        include:
+          - platform:
+              triplet: armv7-w64-mingw32
+              cmake-system-compiler: arm
+            compiler: clang
+
+          - platform:
+              triplet: aarch64-w64-mingw32
+              cmake-system-compiler: arm64
+            compiler: clang
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up mingw-w64 for Clang
+        if: matrix.compiler == 'clang'
+        run: echo "/opt/llvm-mingw/bin" >> $GITHUB_PATH
+
+      - name: Configure project
+        run: >-
+          cmake -S . -B build -GNinja -DCMAKE_SYSTEM_NAME=Windows
+          -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.platform.cmake-system-compiler }}
+          -DCMAKE_FIND_ROOT_PATH=/dev/null
+          -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER
+          -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY
+          -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY
+          -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY
+          -DCMAKE_C_COMPILER=${{ matrix.platform.triplet }}-gcc
+          -DCMAKE_CXX_COMPILER=${{ matrix.platform.triplet }}-g++
+          -DCMAKE_RC_COMPILER=${{ matrix.platform.triplet }}-windres
+          -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build project
+        run: cmake --build build
+
+      - name: Archive artifact
+        run: |
+          cd build/krkrsdl2_repo
+          7z a -tzip krkrsdl2-win32-${{ matrix.platform.cmake-system-compiler }}-${{ matrix.compiler }}.zip *.exe
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: krkrsdl2-win32-${{ matrix.platform.cmake-system-compiler }}-${{ matrix.compiler }}
+          path: build/krkrsdl2_repo/*.zip
+
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: krkrsdl2/krkrsdl2
+          path: krkrsdl2
+          submodules: recursive
+
+      - name: Prepare Android project
+        run: |
+          mv krkrsdl2/android-project android-project
+          mv krkrsdl2/external external
+          rm -rf android-project/app/src/main/assets
+          mkdir -p android-project/app/src/main/assets
+
+      - name: Download example project
+        run: |
+          cd android-project/app/src/main/assets
+          curl -LOC - $EXAMPLE_PROJECT_URL
+
+      - name: Set up base environment
+        run: sudo apt-get install build-essential
+
+      - name: Set up Homebrew environment
+        run: echo "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin" >> $GITHUB_PATH
+
+      - name: Set up default build tools
+        run: brew install make nasm ninja cmake
+
+      - name: set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build project
+        run: |
+          cd android-project
+          ./gradlew assembleRelease -Dcmake.dir=$(dirname $(dirname $(which cmake)))
+
+      - name: Rename artifact
+        run: cp android-project/app/build/outputs/apk/release/krkrsdl2_*.apk ./krkrsdl2.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: krkrsdl2-android
+          path: ./krkrsdl2.apk
+
+  build-vita:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: vitasdk/vitasdk:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          apk update
+          apk add cmake make ninja git curl
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download example project
+        run: curl -LOC - $EXAMPLE_PROJECT_URL
+
+      - name: Configure project
+        run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=${VITASDK}/share/vita.toolchain.cmake -DEMBED_DATA_PATH=data.xp3
+
+      - name: Build project
+        run: cmake --build build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: krkrsdl2-vita
+          path: build/krkrsdl2_repo/*.vpk
+
+  build-switch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: devkitpro/devkita64:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sed -i -e 's,# deb http://snapshot,deb http://snapshot,g;s,deb http://deb,# deb http://deb,g;s,deb http://security,# deb http://security,g' /etc/apt/sources.list && mv /etc/apt/sources.list.d/buster-backports.list /etc/apt/sources.list.d/buster-backports.list.disabled && printf '%s\\n' 'Acquire::Check-Valid-Until \"0\";' | tee -a /etc/apt/apt.conf.d/10no--check-valid-until
+
+      - name: Install dependencies
+        run: |
+          apt-get -y update
+          apt-get -y install cmake make ninja-build git curl
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download example project
+        run: curl -LOC - $EXAMPLE_PROJECT_URL
+
+      - name: Configure project
+        run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=${DEVKITPRO}/cmake/Switch.cmake -DEMBED_DATA_PATH=data.xp3
+
+      - name: Build project
+        run: cmake --build build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: krkrsdl2-switch
+          path: build/krkrsdl2_repo/*.nro
+
+  build-darwin-cmake:
+    runs-on: macos-14
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        appbundle:
+          - platform: macos
+            enabled: false
+            cmake-flags: -DOPTION_BUILD_MACOS_BUNDLE=OFF
+            built-path: build/krkrsdl2_repo/krkrsdl2
+
+          - platform: macos
+            enabled: true
+            cmake-flags: -DOPTION_BUILD_MACOS_BUNDLE=ON -DEMBED_DATA_PATH=data.xp3
+            built-path: build/krkrsdl2_repo/krkrsdl2.app
+
+          - platform: ios
+            enabled: true
+            cmake-flags: -GXcode -DCMAKE_SYSTEM_NAME=iOS -DEMBED_DATA_PATH=data.xp3
+            built-path: build/krkrsdl2_repo/Debug-iphoneos/krkrsdl2.app
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up environment
+        id: artifact-env
+        run: |
+          if [ ${{ matrix.appbundle.enabled }} == true ]; then
+            artifact_name="krkrsdl2-${{ matrix.appbundle.platform }}-appbundle"
+          else
+            artifact_name="krkrsdl2-${{ matrix.appbundle.platform }}"
+          fi
+          echo "artifact name is $artifact_name"
+          echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
+
+      - name: Download example project
+        if: matrix.appbundle.enabled == true
+        run: curl -LOC - $EXAMPLE_PROJECT_URL
+
+      - name: Set up default build tools
+        run: brew install make nasm ninja cmake
+
+      - name: Configure project
+        run: cmake -S . -B build ${{ matrix.appbundle.cmake-flags }}
+
+      - name: Build project
+        run: cmake --build build
+
+      - name: Archive artifact
+        run: ditto -ck --rsrc --sequesterRsrc --keepParent ${{ matrix.appbundle.built-path }} build/${{ steps.artifact-env.outputs.artifact-name }}.zip
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-env.outputs.artifact-name }}
+          path: build/*.zip
+
+  create-release:
+    needs:
+      - build-web
+      - build-ubuntu
+      - build-win32
+      - build-darwin-cmake
+      - build-android
+      - build-vita
+      - build-switch
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Prepare artifacts for release
+        run: |
+          cp -t . krkrsdl2-*/*.zip
+          cp -t . krkrsdl2-android/krkrsdl2.apk
+          cp -t . krkrsdl2-vita/krkrsdl2.vpk
+          cp -t . krkrsdl2-switch/krkrsdl2.nro
+
+      - name: Create a draft prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: true
+          files: |
+            *.zip
+            *.apk
+            *.vpk
+            *.nro
