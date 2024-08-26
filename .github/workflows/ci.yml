@@ -216,7 +216,7 @@ jobs:
           mkdir -p android-project/app/src/main/assets
 
       - name: Download example project
-        run: |
+        run: | 
           cd android-project/app/src/main/assets
           curl -LOC - $EXAMPLE_PROJECT_URL
 
@@ -286,10 +286,6 @@ jobs:
     container:
       image: devkitpro/devkita64:latest
     steps:
-      - name: Install dependencies
-        run: |
-          sed -i -e 's,# deb http://snapshot,deb http://snapshot,g;s,deb http://deb,# deb http://deb,g;s,deb http://security,# deb http://security,g' /etc/apt/sources.list && mv /etc/apt/sources.list.d/buster-backports.list /etc/apt/sources.list.d/buster-backports.list.disabled && printf '%s\\n' 'Acquire::Check-Valid-Until \"0\";' | tee -a /etc/apt/apt.conf.d/10no--check-valid-until
-
       - name: Install dependencies
         run: |
           apt-get -y update
