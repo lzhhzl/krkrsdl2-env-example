@@ -264,42 +264,42 @@
         }
       ]
     },
-    "build-switch" : {
-      "runs-on" : "ubuntu-20.04",
-      "timeout-minutes" : 20,
-      "container" : {
-        "image" : "devkitpro/devkita64:20210726"
-      },
-      "steps" : [
-        {
-          "name" : "Install dependencies",
-          "run" : "apt-get -y update\napt-get -y install cmake make ninja-build git curl\n"
-        },
-        {
-          "uses" : "actions/checkout@v2",
-          "with" : {
-            "submodules" : "recursive"
-          }
-        },
-        {
-          "name" : "Download krkrsdl2-kag3-demo build",
-          "run" : "curl -LOC - https://github.com/krkrsdl2/krkrsdl2-kag3-demo/releases/download/latest/data.xp3"
-        },
-        {
-          "run" : "cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=${DEVKITPRO}/cmake/Switch.cmake -DEMBED_DATA_PATH=data.xp3"
-        },
-        {
-          "run" : "cmake --build build"
-        },
-        {
-          "uses" : "actions/upload-artifact@master",
-          "with" : {
-            "name" : "krkrsdl2-switch",
-            "path" : "build/krkrsdl2_repo/krkrsdl2.nro"
-          }
-        }
-      ]
-    },
+    # "build-switch" : {
+    #   "runs-on" : "ubuntu-20.04",
+    #   "timeout-minutes" : 20,
+    #   "container" : {
+    #     "image" : "devkitpro/devkita64:20210726"
+    #   },
+    #   "steps" : [
+    #     {
+    #       "name" : "Install dependencies",
+    #       "run" : "apt-get -y update\napt-get -y install cmake make ninja-build git curl\n"
+    #     },
+    #     {
+    #       "uses" : "actions/checkout@v2",
+    #       "with" : {
+    #         "submodules" : "recursive"
+    #       }
+    #     },
+    #     {
+    #       "name" : "Download krkrsdl2-kag3-demo build",
+    #       "run" : "curl -LOC - https://github.com/krkrsdl2/krkrsdl2-kag3-demo/releases/download/latest/data.xp3"
+    #     },
+    #     {
+    #       "run" : "cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=${DEVKITPRO}/cmake/Switch.cmake -DEMBED_DATA_PATH=data.xp3"
+    #     },
+    #     {
+    #       "run" : "cmake --build build"
+    #     },
+    #     {
+    #       "uses" : "actions/upload-artifact@master",
+    #       "with" : {
+    #         "name" : "krkrsdl2-switch",
+    #         "path" : "build/krkrsdl2_repo/krkrsdl2.nro"
+    #       }
+    #     }
+    #   ]
+    # },
     "build-macos-cmake" : {
       "runs-on" : "macos-11",
       "timeout-minutes" : 20,
@@ -394,7 +394,7 @@
       ]
     },
     "create-release" : {
-      "needs" : ["build-web", "build-ubuntu", "build-macos-cmake", "build-ios-cmake", "build-vita", "build-switch"],
+      "needs" : ["build-web", "build-ubuntu", "build-macos-cmake", "build-ios-cmake", "build-vita"], #"build-switch"],
       "runs-on" : "ubuntu-20.04",
       "timeout-minutes" : 20,
       "if" : "github.ref == 'refs/heads/main'",
