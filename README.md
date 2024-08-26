@@ -4,7 +4,9 @@ This project is provided as an example environment for Kirikiri SDL2.
 This can be customized to your liking, such as the following:  
 * Setting different metadata  
 * Setting different configurations  
-* Setting different built-in plugins  
+* Setting different built-in plugins
+
+fork for test
 
 ## License
 
